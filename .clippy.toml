@@ -1,0 +1,7 @@
+disallowed-methods = ["std::str::to_string"]
+too-many-arguments-threshold = 16
+type-complexity-threshold = 1000
+too-many-lines-threshold = 250
+avoid-breaking-exported-api = false
+trivial-copy-size-limit = 256
+pass-by-value-size-limit = 256
