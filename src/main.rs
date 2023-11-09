@@ -75,7 +75,8 @@ fn main() -> ExitCode {
 		println!(" ]: {}", profile.jl);
 		println!(" .: {}", profile.out);
 		println!(" ,: {}", profile.inp);
-		println!(" [-|+]: {}", profile.clr);
+		println!(" x: {}", profile.clear);
+		println!("+>: {}", profile.addto);
 		println!("loops:");
 
 		let to_string = |range: std::ops::Range<usize>| {
@@ -100,7 +101,14 @@ fn main() -> ExitCode {
 					Instruction::Output => ".".to_owned(),
 					Instruction::JumpRight(_) => "[".to_owned(),
 					Instruction::JumpLeft(_) => "]".to_owned(),
-					Instruction::Clear => "[-1]".to_owned()
+					Instruction::Clear => "x".to_owned(),
+					Instruction::AddTo(n) => {
+						if *n  < 0 {
+							format!("+<{}", -n)
+						} else {
+							format!("+>{n}")
+						}
+					}
 				})
 				.fold(String::new(), |a, b| a + &b)
 		};

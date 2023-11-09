@@ -24,7 +24,8 @@
 	clippy::cast_sign_loss,
 	clippy::significant_drop_tightening,
 	clippy::similar_names,
-	clippy::enum_glob_use
+	clippy::enum_glob_use,
+	clippy::items_after_statements
 )]
 #![cfg_attr(
 	docsrs,
@@ -43,6 +44,7 @@ pub enum Instruction {
 	JumpRight(usize),
 	JumpLeft(usize),
 	Clear,
+	AddTo(isize),
 }
 
 #[derive(Debug, Default)]
@@ -54,7 +56,8 @@ pub struct Profile {
 	pub jl: u64,
 	pub inp: u64,
 	pub out: u64,
-	pub clr: u64,
+	pub clear: u64,
+	pub addto: u64,
 	pub loops: std::collections::HashMap<std::ops::Range<usize>, usize>,
 }
 
@@ -102,7 +105,21 @@ impl Program {
 					match bracket_stack.pop() {
 						Some(pair_address) => {
 							instructions[pair_address] = Instruction::JumpRight(curr_address);
-							Instruction::JumpLeft(pair_address)
+
+							use Instruction::*;
+							match instructions.as_slice() {
+								[.., JumpRight(_), Add(n)] if n % 2 == 1 => {
+									let len = instructions.len();
+									instructions.drain(len - 2..);
+									Instruction::Clear
+								}
+								&[.., JumpRight(_), Add(255), Move(x), Add(1), Move(y)] if x == -y => {
+									let len = instructions.len();
+									instructions.drain(len - 5..);
+									Instruction::AddTo(x)
+								}
+								_ => Instruction::JumpLeft(pair_address),
+							}
 						}
 						None => return Err(RunError::UnbalancedBrackets(']', curr_address)),
 					}
@@ -142,7 +159,8 @@ impl Program {
 					Input => self.profile.inp += 1,
 					Move(_) => self.profile.mov += 1,
 					JumpRight(_) => self.profile.jr += 1,
-					Clear => self.profile.clr += 1,
+					Clear => self.profile.clear += 1,
+					AddTo(_) => self.profile.addto += 1,
 					JumpLeft(pair) => {
 						self.profile.jl += 1;
 						*self
@@ -194,6 +212,14 @@ impl Program {
 					}
 				}
 				Clear => self.memory[self.pointer] = 0,
+				AddTo(n) => {
+					let len = self.memory.len() as isize;
+					let n = (len + n % len) as usize;
+					let to = (self.pointer + n) % len as usize;
+
+					self.memory[to] = self.memory[to].wrapping_add(self.memory[self.pointer]);
+					self.memory[self.pointer] = 0;
+				}
 			}
 			self.program_counter += 1;
 
