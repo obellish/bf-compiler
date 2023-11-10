@@ -31,40 +31,59 @@
 	deny(rustdoc::broken_intra_doc_links)
 )]
 
-use std::{env, fs, process::ExitCode};
+use std::{env, process::ExitCode};
 
 use bf_compiler::{Program, RunError};
 
 #[allow(clippy::match_on_vec_items)]
 fn main() -> ExitCode {
 	let mut args = env::args();
-	if args.len() != 2 {
-		eprintln!("expected a single file path as argument");
-		return ExitCode::from(1);
+
+	let mut dump = None;
+	let mut source = None;
+	let mut clir = false;
+	while let Some(arg) = args.next() {
+		match arg.as_str() {
+			"-d" | "--dump" => {
+				dump = args.next();
+				assert!(dump.is_some());
+			}
+			"--CLIR" => {
+				clir = true;
+			}
+			_ => source = Some(arg),
+		}
 	}
 
-	let file_name = args.nth(1).unwrap();
-	let source = match fs::read(&file_name) {
+	let Some(source) = source else {
+		eprintln!("expected a file path as an argument");
+		return ExitCode::from(1);
+	};
+
+	let source = match std::fs::read(&source) {
 		Ok(x) => x,
-		Err(e) => {
-			eprintln!("Error reading '{file_name}': {e}");
+		Err(err) => {
+			eprintln!("Error reading '{source}': {err}");
 			return ExitCode::from(2);
 		}
 	};
 
-	let mut program = match Program::new(&source) {
+	let mut program = match Program::new(&source, clir) {
 		Ok(x) => x,
 		Err(RunError::UnbalancedBrackets(c, address)) => {
-			eprintln!(
-				"Error parsing file: didn't find pair for `{c}` at instruction index {address}"
-			);
-			return ExitCode::from(3);
-		}
-		Err(RunError::Io(e)) => {
-			eprintln!("IO error: {e}");
+			eprintln!("Error parsing file: didn't find pair for `{c}` at byte index {address}");
 			return ExitCode::from(3);
 		}
 	};
+
+	if let Some(dump) = &dump {
+		std::fs::write(dump, program.code.as_slice()).unwrap();
+	}
+
+	if dump.is_some() || clir {
+		return ExitCode::from(0);
+	}
+
 	if let Err(err) = program.run() {
 		eprintln!("IO error: {err}");
 	}
