@@ -8,3 +8,7 @@ edition = "2021"
 [features]
 profile = []
 default = ["profile"]
+
+[profile.release]
+lto = "fat"
+codegen-units = 1

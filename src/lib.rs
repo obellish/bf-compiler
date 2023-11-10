@@ -45,6 +45,7 @@ pub enum Instruction {
 	JumpLeft(usize),
 	Clear,
 	AddTo(isize),
+	MoveUntil(isize),
 }
 
 #[derive(Debug, Default)]
@@ -58,6 +59,7 @@ pub struct Profile {
 	pub out: u64,
 	pub clear: u64,
 	pub addto: u64,
+	pub movuntil: u64,
 	pub loops: std::collections::HashMap<std::ops::Range<usize>, usize>,
 }
 
@@ -113,10 +115,17 @@ impl Program {
 									instructions.drain(len - 2..);
 									Instruction::Clear
 								}
-								&[.., JumpRight(_), Add(255), Move(x), Add(1), Move(y)] if x == -y => {
+								&[.., JumpRight(_), Add(255), Move(x), Add(1), Move(y)]
+									if x == -y =>
+								{
 									let len = instructions.len();
 									instructions.drain(len - 5..);
 									Instruction::AddTo(x)
+								}
+								&[.., JumpRight(_), Move(n)] => {
+									let len = instructions.len();
+									instructions.drain(len - 2..);
+									Instruction::MoveUntil(n)
 								}
 								_ => Instruction::JumpLeft(pair_address),
 							}
@@ -169,6 +178,7 @@ impl Program {
 							.entry(pair..self.program_counter + 1)
 							.or_default() += 1;
 					}
+					MoveUntil(_) => self.profile.movuntil += 1,
 				}
 			}
 
@@ -219,6 +229,17 @@ impl Program {
 
 					self.memory[to] = self.memory[to].wrapping_add(self.memory[self.pointer]);
 					self.memory[self.pointer] = 0;
+				}
+				MoveUntil(n) => {
+					let len = self.memory.len() as isize;
+					let n = (len + n % len) as usize;
+					loop {
+						if self.memory[self.pointer] == 0 {
+							break;
+						}
+
+						self.pointer = (self.pointer + n) % len as usize;
+					}
 				}
 			}
 			self.program_counter += 1;
