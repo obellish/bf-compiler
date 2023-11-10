@@ -281,7 +281,7 @@ impl Program {
 				}
 				Instruction::Clear => {
 					let pointer_value = builder.use_var(pointer);
-					let cell_address =builder.ins().iadd(memory_address, pointer_value);
+					let cell_address = builder.ins().iadd(memory_address, pointer_value);
 					builder.ins().store(mem_flags, zero_byte, cell_address, 0);
 				}
 				Instruction::AddTo(n) => {
@@ -291,12 +291,14 @@ impl Program {
 
 					let to_add = if n > 0 {
 						let wrapped = builder.ins().iadd_imm(pointer_value, n - 30_000);
-						let cmp = builder.ins().icmp_imm(IntCC::SignedLessThan, to_add, 30_000);
+						let cmp = builder
+							.ins()
+							.icmp_imm(IntCC::SignedLessThan, to_add, 30_000);
 						builder.ins().select(cmp, to_add, wrapped)
 					} else {
-						let wrapped =  builder.ins().iadd_imm(pointer_value, n + 30_000);
+						let wrapped = builder.ins().iadd_imm(pointer_value, n + 30_000);
 						let cmp = builder.ins().icmp_imm(IntCC::SignedLessThan, to_add, 0);
-						builder.ins().select(cmp, wrapped,to_add)
+						builder.ins().select(cmp, wrapped, to_add)
 					};
 
 					let from_address = builder.ins().iadd(memory_address, pointer_value);
@@ -363,14 +365,18 @@ impl Program {
 
 	#[allow(clippy::match_on_vec_items)]
 	pub fn run(&mut self) -> io::Result<()> {
-		let mut buffer = memmap2::MmapOptions::new().len(self.code.len()).map_anon().unwrap();
+		let mut buffer = memmap2::MmapOptions::new()
+			.len(self.code.len())
+			.map_anon()
+			.unwrap();
 
 		buffer.copy_from_slice(self.code.as_slice());
 
 		let buffer = buffer.make_exec().unwrap();
 
 		unsafe {
-			let code_fn: unsafe extern "C" fn (*mut u8) -> *mut io::Error = std::mem::transmute(buffer.as_ptr());
+			let code_fn: unsafe extern "C" fn(*mut u8) -> *mut io::Error =
+				std::mem::transmute(buffer.as_ptr());
 
 			let error = code_fn(self.memory.as_mut_ptr());
 
