@@ -4,10 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+libc = "0.2.150"
 
 [features]
-profile = []
-default = ["profile"]
 
 [profile.release]
 lto = "fat"

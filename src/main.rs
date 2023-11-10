@@ -33,7 +33,7 @@
 
 use std::{env, fs, process::ExitCode};
 
-use bf_compiler::{Instruction, Program, RunError};
+use bf_compiler::{Program, RunError};
 
 #[allow(clippy::match_on_vec_items)]
 fn main() -> ExitCode {
@@ -60,89 +60,13 @@ fn main() -> ExitCode {
 			);
 			return ExitCode::from(3);
 		}
+		Err(RunError::Io(e)) => {
+			eprintln!("IO error: {e}");
+			return ExitCode::from(3);
+		}
 	};
 	if let Err(err) = program.run() {
 		eprintln!("IO error: {err}");
-	}
-
-	#[cfg(feature = "profile")]
-	{
-		let profile = std::mem::take(&mut program.profile);
-		println!("profile:");
-		println!(" +: {}", profile.add);
-		println!(" >: {}", profile.mov);
-		println!(" [: {}", profile.jr);
-		println!(" ]: {}", profile.jl);
-		println!(" .: {}", profile.out);
-		println!(" ,: {}", profile.inp);
-		println!(" x: {}", profile.clear);
-		println!("+>: {}", profile.addto);
-		println!(">>: {}", profile.movuntil);
-		println!("loops:");
-
-		let to_string = |range: std::ops::Range<usize>| {
-			program.instructions[range]
-				.iter()
-				.map(|x| match x {
-					Instruction::Add(n) => {
-						if *n >= 128 {
-							format!("-{}", n.wrapping_neg())
-						} else {
-							format!("+{n}")
-						}
-					}
-					Instruction::Move(n) => {
-						if *n < 0 {
-							format!("<{}", -n)
-						} else {
-							format!(">{n}")
-						}
-					}
-					Instruction::Input => ",".to_owned(),
-					Instruction::Output => ".".to_owned(),
-					Instruction::JumpRight(_) => "[".to_owned(),
-					Instruction::JumpLeft(_) => "]".to_owned(),
-					Instruction::Clear => "x".to_owned(),
-					Instruction::AddTo(n) => {
-						if *n < 0 {
-							format!("+<{}", -n)
-						} else {
-							format!("+>{n}")
-						}
-					}
-					Instruction::MoveUntil(n) => {
-						if *n < 0 {
-							format!("<<{}", -n)
-						} else {
-							format!(">>{n}")
-						}
-					}
-				})
-				.fold(String::new(), |a, b| a + &b)
-		};
-
-		let mut loops: Vec<_> = profile
-			.loops
-			.into_iter()
-			.map(|(range, count)| (to_string(range), count))
-			.collect();
-
-		loops.sort_by(|(a, _), (b, _)| a.cmp(b));
-
-		for i in 1..loops.len() {
-			if loops[i - 1].0 == loops[i].0 {
-				loops[i].1 += loops[i - 1].1;
-				loops[i - 1].1 = 0;
-			}
-		}
-
-		loops.retain(|x| x.1 > 0);
-
-		loops.sort_by_key(|x| x.1);
-
-		for (code, count) in loops.into_iter().rev().take(20) {
-			println!("{count:10}: {code}");
-		}
 	}
 
 	ExitCode::from(0)
